@@ -89,8 +89,9 @@ def write_csv(
             }
             if has_run_index:
                 out_row["run_index"] = row.get("run_index", 1)
-            out_row["total_s"] = row["total_s"]
-            out_row["distance"] = row["distance"]
+            # Format floats in scientific notation with 10 decimal places
+            out_row["total_s"] = f"{float(row['total_s']):.10e}"
+            out_row["distance"] = f"{float(row['distance']):.10e}"
 
             # Flatten stage_times
             stage_times = row.get("stage_times", {})
@@ -102,9 +103,9 @@ def write_csv(
                 stage_names.append("")
                 stage_values.append(0.0)
             out_row["stage_1_name"] = stage_names[0]
-            out_row["stage_1_s"] = stage_values[0]
+            out_row["stage_1_s"] = f"{float(stage_values[0]):.10e}"
             out_row["stage_2_name"] = stage_names[1]
-            out_row["stage_2_s"] = stage_values[1]
+            out_row["stage_2_s"] = f"{float(stage_values[1]):.10e}"
 
             writer.writerow(out_row)
 

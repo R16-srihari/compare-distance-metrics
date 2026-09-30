@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import scipy.linalg
 
-from .gmm_types import AIRMResult, GMM
+from .gmm_types import GMM, AIRMResult
 
 
 def component_spd_blocks(g: GMM) -> np.ndarray:
@@ -134,21 +134,15 @@ def airm_block(g1: GMM, g2: GMM) -> AIRMResult:
     for k in range(K):
         S1k = S1_blocks[k]  # (n+1, n+1)
         S2k = S2_blocks[k]  # (n+1, n+1)
-        # Compute S1k^{-1/2} via eigendecomposition
-        evals1, evecs1 = np.linalg.eigh(S1k)
-        # Avoid negative eigenvalues due to numerical issues
-        evals1 = np.maximum(evals1, 1e-12)
-        # S1k^{-1/2} = V * diag(1/sqrt(evals)) * V^T
-        inv_sqrt_evals1 = 1.0 / np.sqrt(evals1)
-        S1k_inv_sqrt = evecs1 @ np.diag(inv_sqrt_evals1) @ evecs1.T
-        # M_k = S1k^{-1/2} S2k S1k^{-1/2}
-        M = S1k_inv_sqrt @ S2k @ S1k_inv_sqrt
-        # Symmetrize to reduce numerical error
-        M = 0.5 * (M + M.T)
-        # Eigenvalues of M
-        evalsM = np.linalg.eigvalsh(M)
-        # Avoid zeros for log
-        evalsM = np.maximum(evalsM, 1e-12)
+        # The eigenvalues of S1k^{-1/2} S2k S1k^{-1/2} equal those of the
+        # generalized symmetric problem S2k v = lambda S1k v. Computing them
+        # via scipy.linalg.eigh(S2k, S1k) (Cholesky-based) is far more stable
+        # than forming the explicit inverse-sqrt product, which amplifies
+        # round-off for ill-conditioned blocks (e.g. components with tiny
+        # weights make cond(S1k) ~ 1e10).
+        evalsM = scipy.linalg.eigh(S2k, S1k, eigvals_only=True)
+        # Avoid non-positive eigenvalues due to numerical issues
+        evalsM = np.maximum(evalsM, 1e-300)
         log_evals = np.log(evalsM)
         log_eig_sumsq[k] = np.sum(log_evals**2)
     t_mf = time.perf_counter() - start_mf

@@ -180,8 +180,8 @@ def main(argv: list[str] | None = None) -> int:
                 "K": r["k"],
                 "Metric": r["metric"],
                 "Run": r["run_index"],
-                "Total_s": f"{r['total_s']:.4f}",
-                "Distance": f"{r['distance']:.6f}",
+                "Total_s": f"{r['total_s']:.10e}",
+                "Distance": f"{r['distance']:.10e}",
             }
         )
     columns = ["K", "Metric", "Run", "Total_s", "Distance"]
@@ -196,12 +196,12 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "K": r["k"],
                 "Metric": r["metric"],
-                "Mean_s": f"{r['mean_s']:.4f}",
-                "Std_s": f"{r['std_s']:.4f}",
-                "Min_s": f"{r['min_s']:.4f}",
-                "Median_s": f"{r['median_s']:.4f}",
-                "Max_s": f"{r['max_s']:.4f}",
-                "Distance": f"{r['distance']:.6f}",
+                "Mean_s": f"{r['mean_s']:.10e}",
+                "Std_s": f"{r['std_s']:.10e}",
+                "Min_s": f"{r['min_s']:.10e}",
+                "Median_s": f"{r['median_s']:.10e}",
+                "Max_s": f"{r['max_s']:.10e}",
+                "Distance": f"{r['distance']:.10e}",
             }
         )
     columns = ["K", "Metric", "Mean_s", "Std_s", "Min_s", "Median_s", "Max_s", "Distance"]
@@ -209,9 +209,36 @@ def main(argv: list[str] | None = None) -> int:
     print(format_table(display_rows, columns))
     print()
 
-    # Write CSV files
-    write_csv(args.out_raw, raw_results)
-    write_csv(args.out_summary, summary_results)
+    # Write raw CSV with only k, metric, run_index, total_s
+    import csv
+    from pathlib import Path
+    raw_path = Path(args.out_raw)
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(raw_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["k", "metric", "run_index", "total_s"])
+        writer.writeheader()
+        for row in raw_results:
+            writer.writerow({
+                "k": row["k"],
+                "metric": row["metric"],
+                "run_index": row.get("run_index", 1),
+                "total_s": f"{float(row['total_s']):.10e}",
+            })
+    # Write summary CSV with mean, min, max, distance
+    summary_path = Path(args.out_summary)
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(summary_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["k", "metric", "mean_s", "min_s", "max_s", "distance"])
+        writer.writeheader()
+        for row in summary_results:
+            writer.writerow({
+                "k": row["k"],
+                "metric": row["metric"],
+                "mean_s": f"{float(row['mean_s']):.10e}",
+                "min_s": f"{float(row['min_s']):.10e}",
+                "max_s": f"{float(row['max_s']):.10e}",
+                "distance": f"{float(row['distance']):.10e}",
+            })
     print(f"Raw results written to {args.out_raw}")
     print(f"Summary results written to {args.out_summary}")
 

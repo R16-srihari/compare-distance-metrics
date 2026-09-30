@@ -96,7 +96,7 @@ def axis_grid(m: int, cell_fraction: float = CELL_FRACTION) -> tuple[np.ndarray,
         raise ValueError("cell_fraction must be > 0")
     midpoints = (np.arange(m) + 0.5) / m
     sigma = cell_fraction / m
-    return midpoints.astype(np.float64), sigma.astype(np.float64)
+    return midpoints.astype(np.float64), np.float64(sigma)
 
 
 def build_beta_product_gmm(

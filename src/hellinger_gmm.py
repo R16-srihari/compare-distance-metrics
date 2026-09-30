@@ -39,17 +39,30 @@ def gaussian_hellinger_block(
     mu_p : np.ndarray
         Shape (C, n), means of first set of Gaussians.
     cov_p : np.ndarray
-        Shape (C, n, n), covariances of first set.
+        Shape (C, n, n), covariances of first set. A single (n, n) matrix
+        is also accepted and treated as a set of one Gaussian.
     mu_q : np.ndarray
         Shape (M, n), means of second set.
     cov_q : np.ndarray
-        Shape (M, n, n), covariances of second set.
+        Shape (M, n, n), covariances of second set. A single (n, n) matrix
+        is also accepted and treated as a set of one Gaussian.
 
     Returns
     -------
     np.ndarray
         Shape (C, M), distance matrix.
     """
+    # Normalize inputs: accept a single mean as 1D (n,) and a single
+    # covariance as 2D (n, n), promoting them to batched shapes.
+    if mu_p.ndim == 1:
+        mu_p = mu_p[np.newaxis, :]
+    if mu_q.ndim == 1:
+        mu_q = mu_q[np.newaxis, :]
+    if cov_p.ndim == 2:
+        cov_p = cov_p[np.newaxis, :, :]
+    if cov_q.ndim == 2:
+        cov_q = cov_q[np.newaxis, :, :]
+
     C = mu_p.shape[0]
     M = mu_q.shape[0]
     n = mu_p.shape[1]

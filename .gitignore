@@ -18,9 +18,6 @@ venv.bak/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Results and output
-results/
-*.csv
 
 # IDE
 .vscode/
