@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.cover
+*.log
+*.sqlite3
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Results and output
+results/
+*.csv
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+papers/
+
+# OS
+.DS_Store
+Thumbs.db
