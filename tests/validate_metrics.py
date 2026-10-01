@@ -126,33 +126,34 @@ def test_airm_self_distance() -> None:
     for k in [100, 200, 500, 1000]:
         gmm = build_beta_product_gmm(k=k)
         result = gmm_airm(gmm, gmm)
-        # Note: the residual is inherent float64 round-off from the
-        # eigendecompositions (~sqrt(4*K) log-eigenvalue terms, each with
-        # ~1e-9 noise), so 1e-12 is unrealistically strict here.
-        assert result.distance < 1e-7, f"AIRM self-distance should be ~0, got {result.distance} for K={k}"
+        # Note: the residual is inherent float64 round-off from the dense
+        # logm path (grows with the embedding size K*(n+1): ~2.8e-7 at K=200),
+        # so 1e-12 is unrealistically strict here.
+        assert result.distance < 1e-5, f"AIRM self-distance should be ~0, got {result.distance} for K={k}"
     print("PASS")
 
 
-def test_airm_block_vs_dense() -> None:
-    """Test that the block and dense AIRM implementations agree for small K."""
-    print("Testing AIRM block vs dense...", end=" ")
+def test_airm_dense_logm_vs_eigendecomposition() -> None:
+    """Test that the two dense AIRM paths (logm and eigendecomposition) agree."""
+    from src.airm_gmm import airm_dense
+    print("Testing AIRM dense logm vs eigendecomposition...", end=" ")
     for k in [100, 200]:
         gmm = build_beta_product_gmm(k=k)
-        result_block = gmm_airm(gmm, gmm, method="block")
-        result_dense = gmm_airm(gmm, gmm, method="dense")
+        result_logm = airm_dense(gmm, gmm, use_logm=True)
+        result_eig = airm_dense(gmm, gmm, use_logm=False)
         # They should agree closely. Note: for self-distances (both ~0) the
         # dense logm path leaves float64 round-off (up to ~1e-6, growing with
         # embedding size), so a strict absolute tolerance would be unrealistic;
         # meaningful distances agree to ~1e-13 (checked below).
-        assert np.isclose(result_block.distance, result_dense.distance, rtol=1e-8, atol=1e-6), \
-            f"AIRM block and dense disagree for K={k}: block={result_block.distance}, dense={result_dense.distance}"
+        assert np.isclose(result_logm.distance, result_eig.distance, rtol=1e-8, atol=1e-6), \
+            f"AIRM dense paths disagree for K={k}: logm={result_logm.distance}, eig={result_eig.distance}"
         # Also test with a shifted GMM
         delta = np.full(gmm.dim, 0.1)
         gmm_shifted = shifted_gmm(gmm, delta)
-        result_block_shifted = gmm_airm(gmm, gmm_shifted, method="block")
-        result_dense_shifted = gmm_airm(gmm, gmm_shifted, method="dense")
-        assert np.isclose(result_block_shifted.distance, result_dense_shifted.distance, rtol=1e-8, atol=1e-12), \
-            f"AIRM block and dense disagree for shifted K={k}: block={result_block_shifted.distance}, dense={result_dense_shifted.distance}"
+        result_logm_shifted = airm_dense(gmm, gmm_shifted, use_logm=True)
+        result_eig_shifted = airm_dense(gmm, gmm_shifted, use_logm=False)
+        assert np.isclose(result_logm_shifted.distance, result_eig_shifted.distance, rtol=1e-8, atol=1e-12), \
+            f"AIRM dense paths disagree for shifted K={k}: logm={result_logm_shifted.distance}, eig={result_eig_shifted.distance}"
         # Check that the embedding is block-diagonal (off-block entries should be zero)
         from src.airm_gmm import spd_embedding
         S = spd_embedding(gmm, allow_large=True)  # Allow large for checking
@@ -197,7 +198,7 @@ def main() -> int:
         test_component_hellinger()
         test_hellinger_self_distance()
         test_airm_self_distance()
-        test_airm_block_vs_dense()
+        test_airm_dense_logm_vs_eigendecomposition()
         test_airm_metric_axioms()
         print("\nAll tests PASSED!")
         return 0

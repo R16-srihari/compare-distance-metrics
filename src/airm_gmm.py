@@ -2,7 +2,7 @@
 
 This module provides the AIRM distance computation for GMMs via the
 symmetric positive-definite embedding as described in the reference algorithm.
-It includes a fast block-diagonal path and a dense reference path.
+All K-valued distribution AIRM distances are routed through the dense path.
 
 It can be used as a library or run as a script (see main()).
 """
@@ -94,68 +94,6 @@ def spd_embedding(g: GMM, allow_large: bool = False) -> np.ndarray:
     return scipy.linalg.block_diag(*blocks)
 
 
-def airm_block(g1: GMM, g2: GMM) -> AIRMResult:
-    """Compute AIRM distance using the block-diagonal property.
-
-    This is the fast, exact path that exploits the block-diagonal structure
-    of the SPD embedding.
-
-    Parameters
-    ----------
-    g1 : GMM
-        First GMM.
-    g2 : GMM
-        Second GMM.
-
-    Returns
-    -------
-    AIRMResult
-        The result containing distance, timing, and method.
-    """
-    if g1.k != g2.k:
-        raise ValueError("GMMs must have the same number of components")
-    if g1.dim != g2.dim:
-        raise ValueError("GMMs must have the same dimension")
-
-    start_emb = time.perf_counter()
-    S1_blocks = component_spd_blocks(g1)  # (K, n+1, n+1)
-    S2_blocks = component_spd_blocks(g2)  # (K, n+1, n+1)
-    t_emb = time.perf_counter() - start_emb
-
-    # We need to compute M_k = S1_k^{-1/2} S2_k S1_k^{-1/2} for each k
-    start_mf = time.perf_counter()
-    K = g1.k
-    n_plus_1 = g1.dim + 1
-    # We'll compute the eigenvalues of M_k for each k and then the distance
-    # distance^2 = sum_k || log(M_k) ||_F^2
-    # Since M_k is symmetric, we can compute its eigenvalues and then
-    # sum of (log(eigenvalues))^2
-    log_eig_sumsq = np.zeros(K, dtype=np.float64)
-    for k in range(K):
-        S1k = S1_blocks[k]  # (n+1, n+1)
-        S2k = S2_blocks[k]  # (n+1, n+1)
-        # The eigenvalues of S1k^{-1/2} S2k S1k^{-1/2} equal those of the
-        # generalized symmetric problem S2k v = lambda S1k v. Computing them
-        # via scipy.linalg.eigh(S2k, S1k) (Cholesky-based) is far more stable
-        # than forming the explicit inverse-sqrt product, which amplifies
-        # round-off for ill-conditioned blocks (e.g. components with tiny
-        # weights make cond(S1k) ~ 1e10).
-        evalsM = scipy.linalg.eigh(S2k, S1k, eigvals_only=True)
-        # Avoid non-positive eigenvalues due to numerical issues
-        evalsM = np.maximum(evalsM, 1e-300)
-        log_evals = np.log(evalsM)
-        log_eig_sumsq[k] = np.sum(log_evals**2)
-    t_mf = time.perf_counter() - start_mf
-
-    distance = np.sqrt(log_eig_sumsq.sum())
-    return AIRMResult(
-        distance=distance,
-        stage_times={"embedding": t_emb, "matrix_function": t_mf},
-        method="block",
-        spd_size=K * n_plus_1,
-    )
-
-
 def airm_dense(g1: GMM, g2: GMM, use_logm: bool = True) -> AIRMResult:
     """Compute AIRM distance via the dense embedding (reference path).
 
@@ -180,8 +118,8 @@ def airm_dense(g1: GMM, g2: GMM, use_logm: bool = True) -> AIRMResult:
         raise ValueError("GMMs must have the same dimension")
 
     start_emb = time.perf_counter()
-    S1 = spd_embedding(g1, allow_large=False)
-    S2 = spd_embedding(g2, allow_large=False)
+    S1 = spd_embedding(g1, allow_large=True)
+    S2 = spd_embedding(g2, allow_large=True)
     t_emb = time.perf_counter() - start_emb
 
     # Compute S1^{-1/2}
@@ -227,11 +165,9 @@ def gmm_airm(
     g2 : GMM
         Second GMM.
     method : str, optional
-        One of "auto", "block", "dense", or "both".
-        - "auto": use block for K >= 100, else dense.
-        - "block": force block path.
+        One of "auto" or "dense" (default: "auto").
+        - "auto": route through the dense path.
         - "dense": force dense path.
-        - "both": compute both and verify they agree (used in tests).
 
     Returns
     -------
@@ -243,26 +179,8 @@ def gmm_airm(
     ValueError
         If an unknown method is provided.
     """
-    if method == "auto":
-        if g1.k >= 100:
-            return airm_block(g1, g2)
-        else:
-            return airm_dense(g1, g2, use_logm=True)
-    elif method == "block":
-        return airm_block(g1, g2)
-    elif method == "dense":
+    if method == "auto" or method == "dense":
         return airm_dense(g1, g2, use_logm=True)
-    elif method == "both":
-        res_block = airm_block(g1, g2)
-        res_dense = airm_dense(g1, g2, use_logm=True)
-        # Check agreement
-        if not np.isclose(res_block.distance, res_dense.distance, rtol=1e-8, atol=1e-12):
-            raise ValueError(
-                f"Block and dense results disagree: "
-                f"block={res_block.distance}, dense={res_dense.distance}"
-            )
-        # Return the block result (or either, they are close)
-        return res_block
     else:
         raise ValueError(f"Unknown method: {method}")
 
@@ -290,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--method",
-        choices=["auto", "block", "dense", "both"],
+        choices=["auto", "dense"],
         default="auto",
         help="Method to use (default: auto)",
     )
