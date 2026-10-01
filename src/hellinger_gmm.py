@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import sys
 import time
-from typing import Any
 
 import numpy as np
 import ot  # POT
 
+from .beta_gmm import build_beta_product_gmm, shifted_gmm
 from .gmm_types import (
     DEFAULT_CHUNK,
     GMM,
@@ -207,8 +207,8 @@ def transport_cost(
         total_cost = np.sum(plan * cost)
         return total_cost, plan
     elif solver == "scipy":
-        from scipy.optimize import linprog
         import scipy.sparse as sparse
+        from scipy.optimize import linprog
 
         K1, K2 = cost.shape
         # Flatten the cost matrix in row-major order

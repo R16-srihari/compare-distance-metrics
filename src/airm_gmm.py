@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import sys
 import time
-from typing import Any
 
 import numpy as np
 import scipy.linalg
 
+from .beta_gmm import build_beta_product_gmm, shifted_gmm
 from .gmm_types import GMM, AIRMResult
 
 
@@ -91,7 +91,7 @@ def spd_embedding(g: GMM, allow_large: bool = False) -> np.ndarray:
     # construct it directly as a block-diagonal matrix.
     blocks = component_spd_blocks(g)  # (K, n+1, n+1)
     # Use scipy.linalg.block_diag to create the block-diagonal matrix
-    return scipy.linalg.block_diag(*blocks)
+    return np.asarray(scipy.linalg.block_diag(*blocks), dtype=np.float64)
 
 
 def airm_block(g1: GMM, g2: GMM) -> AIRMResult:

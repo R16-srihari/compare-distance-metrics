@@ -13,11 +13,11 @@ from typing import Sequence
 
 import numpy as np
 
+from src.airm_gmm import gmm_airm
 from src.beta_gmm import build_beta_product_gmm
 from src.gmm_types import GMM
 from src.hellinger_gmm import gmm_hellinger
-from src.airm_gmm import gmm_airm
-from src.timing_utils import timed, thread_env_report, write_csv, summarize
+from src.timing_utils import summarize, thread_env_report, timed, write_csv
 
 
 def run_repeats(
