@@ -209,13 +209,13 @@ def main(argv: list[str] | None = None) -> int:
     print(format_table(display_rows, columns))
     print()
 
-    # Write raw CSV with only k, metric, run_index, total_s
+    # Write raw CSV with only k, metric, run_index, total_s, distance
     import csv
     from pathlib import Path
     raw_path = Path(args.out_raw)
     raw_path.parent.mkdir(parents=True, exist_ok=True)
     with open(raw_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["k", "metric", "run_index", "total_s"])
+        writer = csv.DictWriter(f, fieldnames=["k", "metric", "run_index", "total_s", "distance"])
         writer.writeheader()
         for row in raw_results:
             writer.writerow({
@@ -223,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
                 "metric": row["metric"],
                 "run_index": row.get("run_index", 1),
                 "total_s": f"{float(row['total_s']):.10e}",
+                "distance": f"{float(row['distance']):.10e}",
             })
     # Write summary CSV with mean, min, max, distance
     summary_path = Path(args.out_summary)
